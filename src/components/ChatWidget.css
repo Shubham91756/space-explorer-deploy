@@ -1,0 +1,42 @@
+.tarabot-button {
+  position: relative;
+  bottom: auto;
+  right: auto;
+  background-color: #4c6ef5;
+  color: white;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 30px;
+  font-size: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  z-index: auto;
+  transition: all 0.3s ease;
+  width: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.tarabot-button:hover {
+  background-color: #3a53c9;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(76, 110, 245, 0.4);
+}
+
+.tarabot-button:active {
+  transform: translateY(0);
+}
+
+.tarabot-frame {
+  position: fixed;
+  bottom: calc(1.5rem + 60px + 1rem + 80px);
+  right: 1.5rem;
+  width: 350px;
+  height: 520px;
+  z-index: 999;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+  overflow: hidden;
+}
