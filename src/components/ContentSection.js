@@ -24,6 +24,10 @@ const ContentSection = () => {
   const [showCurrentEvents, setShowCurrentEvents] = useState(false);
   const [currentEvents, setCurrentEvents] = useState([]);
   const [showAllCurrent, setShowAllCurrent] = useState(false);
+  const [currentEventsYear, setCurrentEventsYear] = useState(new Date().getFullYear());
+  const [currentEventsYearInput, setCurrentEventsYearInput] = useState(String(new Date().getFullYear()));
+  const [currentEventsLoading, setCurrentEventsLoading] = useState(false);
+  const [currentEventsError, setCurrentEventsError] = useState(null);
 
   const eventsRef = useRef(null);
   const historicalEventsRef = useRef(null);
@@ -50,6 +54,11 @@ const ContentSection = () => {
         (event.pages?.[0]?.title
           ? `https://en.wikipedia.org/wiki/${encodeURIComponent(event.pages[0].title.replace(/ /g, '_'))}`
           : null)
+      : null;
+
+  const getCurrentEventWikipediaUrl = (event) =>
+    event.text
+      ? `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(event.text.split(' - ')[0])}`
       : null;
 
   const handleDateChange = (date) => {
@@ -160,12 +169,38 @@ const ContentSection = () => {
 
   useEffect(() => {
     const fetchCurrentEvents = async () => {
+      setCurrentEventsLoading(true);
+      setCurrentEventsError(null);
       try {
-        const res = await fetch('https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=30');
-        const data = await res.json();
-        const launches = data.results || [];
+        const start = `${currentEventsYear}-01-01T00:00:00Z`;
+        const end = `${currentEventsYear}-12-31T23:59:59Z`;
+        const params = new URLSearchParams({
+          limit: '100',
+          window_start__gte: start,
+          window_start__lte: end,
+        });
+        let nextUrl = `https://ll.thespacedevs.com/2.2.0/launch/?${params}`;
+        const launches = [];
+        const visitedUrls = new Set();
 
-        const mappedEvents = launches.map((launch) => ({
+        while (nextUrl && !visitedUrls.has(nextUrl)) {
+          visitedUrls.add(nextUrl);
+          const res = await fetch(nextUrl);
+          if (!res.ok) {
+            throw new Error(`SpaceDevs returned ${res.status}`);
+          }
+
+          const data = await res.json();
+          launches.push(...(data.results || []));
+          nextUrl = data.next || null;
+        }
+
+        const yearLaunches = launches.filter((launch) => {
+          const launchYear = new Date(launch.net).getFullYear();
+          return launchYear === currentEventsYear;
+        });
+
+        const mappedEvents = yearLaunches.map((launch) => ({
           date: new Date(launch.net),
           year: new Date(launch.net).getFullYear(),
           text: `${launch.name} - ${launch.mission?.description || 'No mission description available.'}`,
@@ -174,16 +209,32 @@ const ContentSection = () => {
           link: launch.url || null, // ✅ Use SpaceDevs launch page
         }));
 
-        setCurrentEvents(mappedEvents);
+        setCurrentEvents(mappedEvents.sort((a, b) => a.date - b.date));
       } catch (err) {
         console.error('❌ Failed to fetch current events:', err);
+        setCurrentEvents([]);
+        setCurrentEventsError(`Unable to load space events for ${currentEventsYear}.`);
+      } finally {
+        setCurrentEventsLoading(false);
       }
     };
 
-    if (showCurrentEvents && currentEvents.length === 0) {
+    if (showCurrentEvents) {
       fetchCurrentEvents();
     }
-  }, [showCurrentEvents, currentEvents.length]);
+  }, [showCurrentEvents, currentEventsYear]);
+
+  const handleCurrentEventsYearSubmit = (event) => {
+    event.preventDefault();
+    const year = Number(currentEventsYearInput);
+    if (!Number.isInteger(year) || year < 1950 || year > 2100) {
+      setCurrentEventsError('Enter a year between 1950 and 2100.');
+      return;
+    }
+
+    setShowAllCurrent(false);
+    setCurrentEventsYear(year);
+  };
 
   const cardVariants = {
     offscreen: { y: 100, opacity: 0 },
@@ -279,16 +330,30 @@ const ContentSection = () => {
             </div>
 
             <div className="current-events-toggle">
+              <form className="current-events-year-form" onSubmit={handleCurrentEventsYearSubmit}>
+                <label htmlFor="current-events-year">Events year:</label>
+                <input
+                  id="current-events-year"
+                  type="number"
+                  min="1950"
+                  max="2100"
+                  value={currentEventsYearInput}
+                  onChange={(event) => setCurrentEventsYearInput(event.target.value)}
+                />
+                <button className="toggle-button" type="submit">Load Year</button>
+              </form>
               <button className="toggle-button" onClick={() => setShowCurrentEvents(!showCurrentEvents)}>
-                {showCurrentEvents ? 'Hide Current Events' : 'Show Current Events (2025)'}
+                {showCurrentEvents ? 'Hide Upcoming Events' : 'Show Upcoming Events'}
               </button>
             </div>
           </motion.div>
 
           {/* 🚀 Current Events */}
-          {showCurrentEvents && filteredCurrentEvents.length > 0 && (
+          {showCurrentEvents && currentEventsLoading && <div className="loader" />}
+          {showCurrentEvents && currentEventsError && <motion.div className="error-card"><h3>{currentEventsError}</h3></motion.div>}
+          {showCurrentEvents && !currentEventsLoading && !currentEventsError && filteredCurrentEvents.length > 0 && (
             <>
-              <h3 className="section-heading">🚀 Current Space Events in 2025</h3>
+              <h3 className="section-heading">🚀 Space Events in {currentEventsYear}</h3>
               <div className="event-meta">
                 <p>Showing {displayedCurrentEvents.length} of {filteredCurrentEvents.length} events.</p>
                 {filteredCurrentEvents.length > 6 && (
@@ -299,19 +364,22 @@ const ContentSection = () => {
               </div>
               <div className="event-list" ref={eventsRef}>
                 {displayedCurrentEvents.map((event, i) => (
-                  <motion.article key={`current-${i}`} className="event-card parallax-card" initial="offscreen" whileInView="onscreen" variants={cardVariants} viewport={{ once: true }} onClick={() => openEventLink(event.link)} role="link" tabIndex={0}>
+                  <motion.article key={`current-${i}`} className="event-card parallax-card" initial="offscreen" whileInView="onscreen" variants={cardVariants} viewport={{ once: true }} onClick={() => openEventLink(getCurrentEventWikipediaUrl(event))} role="link" tabIndex={0}>
                     {event.image && <div className="card-image-container"><img src={event.image} alt="Event" className="card-image" /></div>}
                     <div className="card-content">
                       <time className="card-year">{event.year}</time>
                       <h3 className="card-title">{event.text.split('.')[0]}</h3>
                       <p className="card-description">{event.text}</p>
                       <p className="confidence-score">Confidence: 100%</p>
-                      {event.link && <a href={event.link} className="card-link" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>Learn More →</a>}
+                      {getCurrentEventWikipediaUrl(event) && <a href={getCurrentEventWikipediaUrl(event)} className="card-link" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>Learn More →</a>}
                     </div>
                   </motion.article>
                 ))}
               </div>
             </>
+          )}
+          {showCurrentEvents && !currentEventsLoading && !currentEventsError && filteredCurrentEvents.length === 0 && (
+            <motion.div className="no-events-card"><h3>No space events found for {currentEventsYear}.</h3></motion.div>
           )}
 
           {/* 📜 Historical Events */}

@@ -7,6 +7,74 @@ import { getArchiveResponse } from './spaceArchive';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000';
 const REQUEST_TIMEOUT_MS = 6000;
+const WIKIPEDIA_EVENTS_URL = 'https://en.wikipedia.org/api/rest_v1/feed/onthisday/events';
+
+const SPACE_KEYWORDS = [
+  'space', 'nasa', 'astronaut', 'launch', 'moon', 'apollo',
+  'shuttle', 'satellite', 'orbit', 'rocket', 'spaceship',
+  'space station', 'spacecraft', 'mission', 'probe', 'telescope',
+];
+
+const isSpaceEvent = (event) => {
+  const eventText = (event.text || '').toLowerCase();
+  return SPACE_KEYWORDS.some((keyword) => eventText.includes(keyword));
+};
+
+const fetchWikipediaEvents = async (month, day) => {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timeoutId = controller
+    ? setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    : null;
+
+  try {
+    const response = await fetch(`${WIKIPEDIA_EVENTS_URL}/${month}/${day}`, {
+      method: 'GET',
+      signal: controller?.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Wikipedia returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    const allEvents = Array.isArray(data.events) ? data.events : [];
+    const events = allEvents.filter(isSpaceEvent).map((event) => {
+      const page = event.pages?.[0];
+      const title = page?.title || event.text?.split(' - ')[0] || 'Wikipedia event';
+      const pageId = page?.pageid || null;
+
+      return {
+        year: event.year,
+        text: event.text,
+        title,
+        image: page?.thumbnail?.source || null,
+        link: pageId
+          ? `https://en.wikipedia.org/?curid=${pageId}`
+          : `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`,
+        pages: event.pages || [],
+        source: 'wikipedia',
+      };
+    });
+
+    return {
+      data: {
+        month,
+        day,
+        totalEvents: allEvents.length,
+        spaceEventsCount: events.length,
+        events,
+      },
+      cached: false,
+      source: 'wikipedia-direct',
+      timestamp: new Date().toISOString(),
+      message: 'Data fetched directly from Wikipedia',
+    };
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
 
 // ============================================================================
 // API CLIENT
@@ -52,7 +120,13 @@ class SpaceEventAPIClient {
       };
     } catch (error) {
       console.error(`❌ Failed to fetch historical events for ${month}/${day}:`, error.message);
-      return getArchiveResponse(month, day);
+      try {
+        console.warn('🔄 Trying Wikipedia directly from the browser...');
+        return await fetchWikipediaEvents(month, day);
+      } catch (wikipediaError) {
+        console.error(`❌ Direct Wikipedia request failed for ${month}/${day}:`, wikipediaError.message);
+        return getArchiveResponse(month, day);
+      }
     } finally {
       if (timeoutId) {
         clearTimeout(timeoutId);
