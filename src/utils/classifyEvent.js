@@ -1,4 +1,5 @@
-import spaceData from '@stellar/space-data';
+// eslint-disable-next-line global-require
+const spaceData = require('@stellar/space-data');
 
 const { isSpaceEvent } = spaceData;
 export { isSpaceEvent };
