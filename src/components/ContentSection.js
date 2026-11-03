@@ -78,6 +78,7 @@ const ContentSection = () => {
     if (Number.isInteger(value) && value >= 1950 && value <= 2100) {
       setYear(value);
       setView('year');
+      setSearch('');
     }
   };
 
@@ -92,9 +93,9 @@ const ContentSection = () => {
               {view === 'historical' && <div className="astro-badges"><span className="badge-zodiac">Zodiac: {getZodiacSign(day, month)}</span><span className="badge-moon">Moon: {getMoonPhase(selectedDate)}</span></div>}
             </div>
             <div className="view-tabs" role="tablist">
-              <button className="toggle-button" onClick={() => setView('historical')}>Historical</button>
-              <button className="toggle-button" onClick={() => setView('year')}>Year archive</button>
-              <button className="toggle-button" onClick={() => setView('upcoming')}>Upcoming</button>
+              <button className="toggle-button" onClick={() => { setView('historical'); setSearch(''); }}>Historical</button>
+              <button className="toggle-button" onClick={() => { setView('year'); setSearch(''); }}>Year archive</button>
+              <button className="toggle-button" onClick={() => { setView('upcoming'); setSearch(''); }}>Upcoming</button>
             </div>
             {view === 'historical' && <DatePicker selected={selectedDate} onChange={(date) => date && setSelectedDate(date)} dateFormat="MMMM d" className="custom-datepicker no-year" showMonthDropdown showDayDropdown dropdownMode="select" />}
             {view === 'year' && <form className="current-events-year-form" onSubmit={loadYear}><label htmlFor="launch-year">Year:</label><input id="launch-year" type="number" min="1950" max="2100" value={yearInput} onChange={(event) => setYearInput(event.target.value)} /><button className="toggle-button" type="submit">Load archive</button></form>}

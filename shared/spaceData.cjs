@@ -46,8 +46,7 @@ function archiveEvent(item) {
 
 function getArchiveEventsForDate(month, day) {
   const matches = archive.filter((item) => item[0] === month && item[1] === day);
-  const selected = matches.length ? matches : archive.slice((month * 37 + day * 17) % archive.length, (month * 37 + day * 17) % archive.length + 5);
-  return (selected.length ? selected : archive.slice(0, 5)).map(archiveEvent);
+  return matches.map(archiveEvent);
 }
 
 function getArchiveResponse(month, day) {

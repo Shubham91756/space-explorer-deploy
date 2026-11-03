@@ -157,19 +157,7 @@ const toEvent = (item) => ({
 
 export const getArchiveEventsForDate = (month, day) => {
   const matches = archive.filter((item) => item.month === month && item.day === day);
-  if (matches.length > 0) {
-    return matches.map(toEvent);
-  }
-
-  const seed = month * 37 + day * 17;
-  const start = seed % archive.length;
-  const sampled = [];
-
-  for (let offset = 0; offset < Math.min(5, archive.length); offset += 1) {
-    sampled.push(archive[(start + offset) % archive.length]);
-  }
-
-  return sampled.map(toEvent);
+  return matches.map(toEvent);
 };
 
 export const getArchiveResponse = (month, day) => {
@@ -193,4 +181,3 @@ export const buildWikipediaUrl = (title, pageId = null) =>
   pageId
     ? `https://en.wikipedia.org/?curid=${pageId}`
     : `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
-
