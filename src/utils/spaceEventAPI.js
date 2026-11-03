@@ -1,11 +1,4 @@
-// eslint-disable-next-line global-require
-const spaceData = require('@stellar/space-data');
-
-const { getArchiveResponse } = spaceData;
-
-if (typeof getArchiveResponse !== 'function') {
-  throw new Error('The shared space archive could not be loaded.');
-}
+import { getArchiveResponse } from './spaceArchive';
 
 const request = async (url) => {
   const response = await fetch(url);
