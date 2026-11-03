@@ -1,0 +1,5 @@
+{
+  "name": "@stellar/space-data",
+  "version": "1.0.0",
+  "main": "spaceData.cjs"
+}

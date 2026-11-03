@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './AsteroidDeflector.css';
+import useGameAudio from '../hooks/useGameAudio';
 
 const AsteroidDeflector = ({ isOpen, onClose }) => {
   // ==================== UI STATE (React re-renders only when these change) ====================
@@ -36,6 +37,7 @@ const AsteroidDeflector = ({ isOpen, onClose }) => {
   const canvasSizeRef = useRef({ width: 0, height: 0 });
   const impactTimerRef = useRef(null);
   const missionTimerRef = useRef(null);
+  const { playTone, cleanup: cleanupAudio } = useGameAudio();
 
   // ==================== STEP 1: DYNAMIC CANVAS SIZING & CONTEXT BINDING ====================
   // FIX: The container <div> only mounts to the DOM once gameState === 'PLAYING'
@@ -107,7 +109,6 @@ const AsteroidDeflector = ({ isOpen, onClose }) => {
 
       setCanvasReady(true);
 
-      console.log(`✅ Canvas initialized successfully: ${width}x${height}`);
     };
 
     initCanvas();
@@ -340,28 +341,7 @@ const AsteroidDeflector = ({ isOpen, onClose }) => {
   }, []);
 
   // ==================== AUDIO SYNTHESIS ====================
-  const playClickSound = useCallback(() => {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      // Frequency sweep for satisfying "pew" sound
-      osc.frequency.setValueAtTime(950, audioCtx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(350, audioCtx.currentTime + 0.15);
-
-      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-
-      osc.start(audioCtx.currentTime);
-      osc.stop(audioCtx.currentTime + 0.15);
-    } catch (err) {
-      console.log('Audio unavailable:', err.message);
-    }
-  }, []);
+  const playClickSound = useCallback(() => playTone(650, 150, 'sawtooth', 0.2), [playTone]);
 
   const resetGameData = useCallback(() => {
     scoreRef.current = 0;
@@ -559,7 +539,6 @@ const AsteroidDeflector = ({ isOpen, onClose }) => {
       return;
     }
 
-    console.log('🎮 Starting game loop...');
     runGameLoop();
 
     // Spawn initial wave
@@ -591,8 +570,31 @@ const AsteroidDeflector = ({ isOpen, onClose }) => {
   useEffect(() => {
     return () => {
       stopGameLoops();
+      cleanupAudio();
     };
-  }, [stopGameLoops]);
+  }, [cleanupAudio, stopGameLoops]);
+
+  useEffect(() => {
+    if (!isOpen || !canvasReady) return undefined;
+    const resize = () => {
+      const container = containerRef.current;
+      const canvas = canvasRef.current;
+      if (!container || !canvas) return;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (!width || !height) return;
+      canvas.width = width;
+      canvas.height = height;
+      canvasSizeRef.current = { width, height };
+      earthRef.current = { x: width / 2, y: height - 110, radius: 34 };
+    };
+    window.addEventListener('resize', resize, { passive: true });
+    window.addEventListener('orientationchange', resize, { passive: true });
+    return () => {
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('orientationchange', resize);
+    };
+  }, [canvasReady, isOpen]);
 
   // ==================== STEP 4: BULLETPROOF POINTER EVENTS ====================
   const handleCanvasClick = useCallback((e) => {

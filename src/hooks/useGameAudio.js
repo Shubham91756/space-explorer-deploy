@@ -33,7 +33,7 @@ export const useGameAudio = () => {
       osc.start(now);
       osc.stop(now + durationInSeconds);
     } catch (err) {
-      console.log('Tone playback error:', err);
+      return undefined;
     }
   }, [getAudioContext]);
 
@@ -64,7 +64,7 @@ export const useGameAudio = () => {
         startTime += durationInSeconds;
       });
     } catch (err) {
-      console.log('Sequence playback error:', err);
+      return undefined;
     }
   }, [getAudioContext]);
 

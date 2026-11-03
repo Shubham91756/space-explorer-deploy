@@ -10,7 +10,6 @@ function Earth({ scrollY }) {
   const [dayMap, normalMap] = useTexture([
     '/textures/earth_daymap.jpg',
     '/textures/earth_normal_map.jpg',
-    '/textures/earth_clouds.jpg',
   ]);
 
   useFrame(({ clock }) => {
@@ -100,7 +99,7 @@ export const SpaceScene = ({ scrollY }) => {
         position={SUN_POSITION}
         castShadow
       />
-      <Stars radius={300} depth={50} count={20000} factor={10} saturation={0} fade />
+      <Stars radius={300} depth={50} count={8000} factor={6} saturation={0} fade />
       <Sun />
       <Earth scrollY={scrollY} />
       <Shuttle />

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import './PlanetShowcase.css';
 
 const SUN_POSITION = [0, 0, 0];
+const SOLAR_SYSTEM_VIEW = new THREE.Vector3(0, 10, 50);
 
 const Planet = ({ name, distance, size, speed, texturePath, hasRings = false, setInfo, planetRefs }) => {
   const ref = useRef();
@@ -67,34 +68,20 @@ const Sun = ({ size, setInfo, setCameraTargetRef, setCameraSize }) => {
 
 const CameraController = ({ targetRef, size, defaultMode }) => {
   const { camera } = useThree();
+  const destination = useRef(null);
+  const lookAt = useRef(new THREE.Vector3());
   const offset = size ? size * 6 : 5;
-  const solarSystemView = new THREE.Vector3(0, 10, 50);
 
+  useEffect(() => {
+    const planetPosition = targetRef?.current?.position || new THREE.Vector3(0, 0, 0);
+    destination.current = defaultMode ? SOLAR_SYSTEM_VIEW.clone() : new THREE.Vector3(planetPosition.x, planetPosition.y + size * 1.2, planetPosition.z + offset);
+    lookAt.current.copy(planetPosition);
+  }, [defaultMode, offset, size, targetRef]);
   useFrame(() => {
-    if (defaultMode || !targetRef?.current) {
-      if (camera.position.distanceTo(solarSystemView) > 0.5) {
-        camera.position.lerp(solarSystemView, 0.05);
-      } else {
-        camera.position.copy(solarSystemView);
-      }
-      camera.lookAt(0, 0, 0);
-      return;
-    }
-
-    const planetPosition = targetRef.current.position;
-    const cameraTarget = new THREE.Vector3(
-      planetPosition.x,
-      planetPosition.y + size * 1.2,
-      planetPosition.z + offset
-    );
-
-    if (camera.position.distanceTo(cameraTarget) > 0.05) {
-      camera.position.lerp(cameraTarget, 0.05);
-    } else {
-      camera.position.copy(cameraTarget);
-    }
-
-    camera.lookAt(planetPosition);
+    if (!destination.current) return;
+    camera.position.lerp(destination.current, 0.08);
+    camera.lookAt(lookAt.current);
+    if (camera.position.distanceTo(destination.current) < 0.05) destination.current = null;
   });
 
   return null;
@@ -113,7 +100,7 @@ const OrbitModel = () => {
   const planets = [
     {
       name: 'Mercury',
-      baseDistance: 5,
+      baseDistance: 5, au: 0.39,
       baseSize: 0.3,
       speed: 0.4,
       texture: '/textures/mercury.jpg',
@@ -122,7 +109,7 @@ const OrbitModel = () => {
     },
     {
       name: 'Venus',
-      baseDistance: 7.5,
+      baseDistance: 7.5, au: 0.72,
       baseSize: 0.45,
       speed: 0.25,
       texture: '/textures/venus.jpg',
@@ -131,7 +118,7 @@ const OrbitModel = () => {
     },
     {
       name: 'Earth',
-      baseDistance: 10,
+      baseDistance: 10, au: 1,
       baseSize: 0.5,
       speed: 0.2,
       texture: '/textures/earth.jpg',
@@ -140,7 +127,7 @@ const OrbitModel = () => {
     },
     {
       name: 'Mars',
-      baseDistance: 13,
+      baseDistance: 13, au: 1.52,
       baseSize: 0.4,
       speed: 0.15,
       texture: '/textures/mars.jpg',
@@ -149,7 +136,7 @@ const OrbitModel = () => {
     },
     {
       name: 'Jupiter',
-      baseDistance: 17,
+      baseDistance: 17, au: 5.2,
       baseSize: 0.9,
       speed: 0.1,
       texture: '/textures/jupiter.jpg',
@@ -158,7 +145,7 @@ const OrbitModel = () => {
     },
     {
       name: 'Saturn',
-      baseDistance: 21,
+      baseDistance: 21, au: 9.58,
       baseSize: 0.75,
       speed: 0.08,
       texture: '/textures/saturn.jpg',
@@ -168,7 +155,7 @@ const OrbitModel = () => {
     },
     {
       name: 'Uranus',
-      baseDistance: 25,
+      baseDistance: 25, au: 19.2,
       baseSize: 0.6,
       speed: 0.06,
       texture: '/textures/uranus.jpg',
@@ -177,7 +164,7 @@ const OrbitModel = () => {
     },
     {
       name: 'Neptune',
-      baseDistance: 29,
+      baseDistance: 29, au: 30.1,
       baseSize: 0.58,
       speed: 0.05,
       texture: '/textures/neptune.jpg',
@@ -187,13 +174,13 @@ const OrbitModel = () => {
   ];
 
   const selectedPlanetInfo = selected === 'Sun'
-    ? { name: 'Sun', baseDistance: '—', baseSize: sunSize, speed: '—', description: 'The Sun is the star at the center of the Solar System, providing light and heat to the planets orbiting around it.' }
+    ? { name: 'Sun', au: '—', baseSize: sunSize, speed: '—', description: 'The Sun is the star at the center of the Solar System, providing light and heat to the planets orbiting around it.' }
     : planets.find(p => p.name === selected);
 
   const info = defaultView
     ? {
         name: 'Solar System Overview',
-        baseDistance: 'N/A',
+        au: 'N/A',
         baseSize: 'N/A',
         speed: 'N/A',
         description: 'This is a full view of the Solar System. Click any planet to zoom in and explore more about it!'
@@ -204,7 +191,7 @@ const OrbitModel = () => {
       };
 
   // 🔊 Voiceover Handler
-  const speakDescription = (text) => {
+  const speakDescription = React.useCallback((text) => {
     if (!voiceEnabled) return;
 
     window.speechSynthesis.cancel();
@@ -212,14 +199,20 @@ const OrbitModel = () => {
     utterance.rate = 1;
     utterance.pitch = 1;
     window.speechSynthesis.speak(utterance);
-  };
+  }, [voiceEnabled]);
 
   // Trigger voiceover when selection changes
   useEffect(() => {
-    if (!defaultView && selectedPlanetInfo) {
-      speakDescription(selectedPlanetInfo.description);
+    const selectedDescription = selected === 'Sun'
+      ? 'The Sun is the star at the center of the Solar System, providing light and heat to the planets orbiting around it.'
+      : planets.find((planet) => planet.name === selected)?.description;
+    if (!defaultView && selectedDescription) {
+      speakDescription(selectedDescription);
     }
-  }, [defaultView, selectedPlanetInfo, speakDescription, selected, voiceEnabled]);
+  // The planet definitions are static scene data recreated with the component.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultView, selected, speakDescription]);
+  useEffect(() => () => window.speechSynthesis.cancel(), []);
 
   const handlePlanetClick = (planetName) => {
     if (planetName === 'Sun') {
@@ -278,7 +271,7 @@ const OrbitModel = () => {
 
       <hr style={{ margin: '1rem 0', borderColor: '#334155' }} />
 
-      <p><strong>Distance:</strong> {info.baseDistance} AU</p>
+      <p><strong>Distance:</strong> {info.au} AU</p>
       <p><strong>Size:</strong> {info.baseSize}</p>
       <p><strong>Speed:</strong> {info.speed}</p>
     </div>

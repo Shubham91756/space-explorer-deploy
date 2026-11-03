@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import './SpaceShowcase.css';
@@ -42,10 +42,6 @@ export default function SpaceShowcase() {
   const [selected, setSelected] = useState('Satellite');
   const current = models[selected];
   const parallaxRef = useRef();
-
-  useEffect(() => {
-    Object.values(models).forEach((m) => useGLTF.preload(m.file));
-  }, []);
 
   const handleMouseMove = (e) => {
     const centerX = window.innerWidth / 2;
@@ -92,7 +88,7 @@ export default function SpaceShowcase() {
           <Canvas camera={{ position: [0, 0, current.cameraZ], fov: 45 }}>
             <ambientLight intensity={3} />
             <directionalLight intensity={5} position={[10, 10, 5]} />
-            <ScaledModel modelPath={current.file} scale={current.scale} />
+            <ScaledModel key={current.file} modelPath={current.file} scale={current.scale} />
             <OrbitControls
               enableZoom
               enablePan={false}
